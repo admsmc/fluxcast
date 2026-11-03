@@ -230,7 +230,8 @@ from .p2p.device import _p2p_device_iface_paths, _set_p2p_device_name, _read_p2p
 
 
 
-from .session import _cleanup_step, start_experimental_backend
+from .session import _cleanup_step, start_experimental_backend, start_mice_session
+from .mice_discovery import browse_mice_sinks, MiceSink
 
 
 

@@ -209,6 +209,13 @@ def parse_args() -> argparse.Namespace:
                           "(driver picks the channel).")
     wfd.add_argument("--wfd-monitor", default=None, dest="monitor_name",
                      help="Deprecated alias for --monitor, kept for compatibility")
+    wfd.add_argument("--wfd-transport", default="p2p", dest="wfd_transport",
+                     choices=["p2p", "mice"],
+                     help="How to reach the sink for --protocol wfd: 'p2p' (default) "
+                          "is Wi-Fi Direct; 'mice' is Miracast over Infrastructure "
+                          "(MS-MICE) - discovers sinks via mDNS (_display._tcp) and "
+                          "streams over the existing network, no Wi-Fi Direct at all. "
+                          "Needs both machines on the same LAN and python-zeroconf.")
     wfd.add_argument("--wfd-p2p-backend", default="nm", dest="wfd_p2p_backend",
                      choices=["nm", "wpas"],
                      help="How to bring up the P2P link: 'nm' uses "
@@ -314,6 +321,20 @@ def main() -> None:
             print_report(report)
         return
 
+    if args.wfd_scan and getattr(args, "wfd_transport", "p2p") == "mice":
+        from wfd import WFDNotReady, browse_mice_sinks
+        try:
+            sinks = browse_mice_sinks(timeout=args.wfd_timeout)
+        except WFDNotReady as exc:
+            print(f"[FluxCast WFD] ERROR: {exc}")
+            sys.exit(1)
+        if not sinks:
+            print("[FluxCast WFD] No Miracast over Infrastructure sinks found.")
+        for sink in sinks:
+            print(f"  {sink.name} @ {sink.host}:{sink.port} "
+                  f"container_id={sink.container_id}")
+        return
+
     if args.wfd_scan:
         from wfd import WFDNotReady, active_scan, print_scan
         try:
@@ -325,6 +346,14 @@ def main() -> None:
         return
 
     if args.protocol == "wfd":
+        if getattr(args, "wfd_transport", "p2p") == "mice":
+            from wfd import WFDNotReady, start_mice_session
+            try:
+                start_mice_session(args)
+            except WFDNotReady as exc:
+                print(f"[FluxCast WFD] ERROR: {exc}")
+                sys.exit(1)
+            return
         from wfd import WFDNotReady, start_experimental_backend
         try:
             start_experimental_backend(args)
